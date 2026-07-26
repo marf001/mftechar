@@ -1,0 +1,1166 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OSINT Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0d14;
+  --surface: #141826;
+  --surface2: #1c2137;
+  --border: #262d48;
+  --text: #e2e6f0;
+  --text2: #8891b0;
+  --accent: #6c8cff;
+  --accent-bg: #6c8cff14;
+  --green: #34d399;
+  --red: #f87171;
+  --yellow: #fbbf24;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Inter,sans-serif;background:var(--bg);color:var(--text);padding:20px;min-height:100vh}
+.container{max-width:1000px;margin:0 auto}
+.header{text-align:center;margin-bottom:20px}
+.header h1{font-size:28px;font-weight:800;letter-spacing:-.5px}
+.header h1 span{background:linear-gradient(135deg,var(--accent),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header p{font-size:13px;color:var(--text2);margin-top:4px}
+.search-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:16px}
+.search-row input{padding:12px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;outline:none;transition:border .2s}
+.search-row input:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
+.search-row input::placeholder{color:var(--text2)}
+.search-row button{padding:12px 16px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font-weight:600;font-size:13px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.search-row button:hover{opacity:.85}
+.results{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px}
+@media(max-width:860px){.results{grid-template-columns:1fr 1fr}}
+@media(max-width:540px){.results{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;position:relative}
+.card.truncated{max-height:420px;overflow:hidden}
+.card.truncated::after{content:'';position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,var(--surface));pointer-events:none}
+.card.expanded{max-height:none}
+.card.expanded::after{display:none}
+.card .card-expand{display:block;text-align:center;padding:10px;color:var(--accent);cursor:pointer;font-size:11px;font-weight:600;border-top:1px solid var(--border);margin-top:8px;background:var(--surface2);border-radius:0 0 var(--radius) var(--radius);position:absolute;bottom:0;left:0;right:0;z-index:2}
+.card.expanded .card-expand{position:static;border-radius:var(--radius-sm)}
+.card h3{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.card h3 .badge{font-size:9px;background:var(--accent-bg);color:var(--accent);padding:2px 8px;border-radius:10px}
+.btn-save-card{font-size:13px;cursor:pointer;color:var(--text2);opacity:.4;margin-left:auto;padding:0 4px;border-radius:4px;transition:all .15s;user-select:none}
+.btn-save-card:hover{opacity:1;color:var(--accent);background:var(--accent-bg)}
+.card .empty{text-align:center;padding:24px;color:var(--text2);font-size:12px}
+.field{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
+.field:last-child{border-bottom:none}
+.field .key{color:var(--text2);flex-shrink:0}
+.field .val{color:var(--text);font-weight:500;text-align:right;word-break:break-all}
+.field .val.green{color:var(--green)}
+.field .val.red{color:var(--red)}
+.field .val.yellow{color:var(--yellow)}
+.footer{text-align:center;padding:16px 0 4px;font-size:10px;color:var(--text2);opacity:.4}
+.project-bar{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:12px;flex-wrap:wrap}
+.project-bar .project-status{font-size:11px;color:var(--text2);flex:1}
+.project-bar .project-count{font-size:10px;color:var(--accent);font-weight:600;background:var(--accent-bg);padding:2px 10px;border-radius:10px}
+.project-bar button{padding:7px 14px;border-radius:var(--radius-sm);border:none;font-weight:600;font-size:11px;cursor:pointer;white-space:nowrap}
+.project-bar button:hover{opacity:.85}
+.loading{text-align:center;padding:16px;color:var(--text2);font-size:12px}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.map-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.map-section h3{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+#map{height:380px;border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:10px}
+.ip-row{display:flex;gap:8px}
+.ip-row input{flex:1;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;outline:none}
+.ip-row input:focus{border-color:var(--accent)}
+.ip-row button{padding:10px 20px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap}
+.ip-row button:hover{opacity:.85}
+#ip-info{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+#ip-info .field{font-size:11px}
+.ip-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;margin:2px}
+.ip-tag.yes{background:#34d39922;color:var(--green)}
+.ip-tag.no{background:#f8717122;color:var(--red)}
+.del-link{font-size:10px;color:var(--red);margin-left:6px;cursor:pointer;opacity:.7}
+.del-link:hover{opacity:1;text-decoration:underline}
+.user-result{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
+.user-result:last-child{border-bottom:none}
+.user-result .key{color:var(--text2)}
+.user-result .actions{display:flex;align-items:center;gap:8px}
+.chip{padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;cursor:pointer;transition:all .15s;font-family:inherit}
+.chip:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.port-badge{display:inline-block;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:600;margin:2px;background:var(--accent-bg);color:var(--accent)}
+.port-badge.open{background:#34d39922;color:var(--green)}
+.section-header{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;padding:4px 0 8px;margin-top:16px;border-bottom:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1><span>OSINT</span> Dashboard</h1>
+    <p>La informacion debe ser libre · El conocimiento es poder · La transparencia es un derecho</p>
+  </div>
+  <div class="project-bar" id="project-bar">
+    <span class="project-status" id="project-status">Sin proyecto activo</span>
+    <span class="project-count" id="project-count">0 resultados</span>
+    <button onclick="nuevoProyecto()" id="btn-nuevo" style="background:var(--accent);color:#fff">+ Nuevo Proyecto</button>
+    <button onclick="generarPDF()" id="btn-pdf" style="display:none;background:var(--surface2);color:#34d399">PDF</button>
+    <button onclick="finalizarProyecto()" id="btn-finalizar" style="display:none;background:var(--surface2);color:#f87171">Finalizar</button>
+  </div>
+  <div class="section-header">Datos Personales</div>
+  <div class="search-row" style="grid-template-columns:1fr auto;margin-top:-8px">
+    <input id="input-cuit" placeholder="CUIT (11 digitos)" maxlength="11">
+    <button onclick="buscarCUITInput()" style="background:var(--surface2);color:#60a5fa">CUIT</button>
+  </div>
+  <div class="search-row" style="grid-template-columns:1fr auto auto;margin-top:-8px">
+    <input id="input-dni" placeholder="DNI (7 u 8 digitos)" maxlength="8">
+    <select id="input-genero" style="padding:12px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;outline:none;cursor:pointer">
+      <option value="M">Masculino</option>
+      <option value="F">Femenino</option>
+      <option value="X">Otro</option>
+    </select>
+    <button onclick="buscarCuitPorDni()" style="background:var(--surface2);color:#60a5fa">CUIT x DNI</button>
+  </div>
+  <div class="search-row" style="grid-template-columns:1fr auto 1fr auto 1fr auto;margin-top:-8px">
+    <input id="input-email" placeholder="Email (ej: usuario@dominio.com)" type="email">
+    <button onclick="buscarEmailInput()" style="background:var(--surface2);color:#34d399">Email</button>
+    <input id="input-telefono" placeholder="Telefono (ej: 541112345678)">
+    <button onclick="buscarTelefonoInput()" style="background:var(--surface2);color:#fbbf24">Telefono</button>
+    <input id="input-usuario" placeholder="Usuario (redes sociales)">
+    <button onclick="buscarUsuarioInput()" style="background:var(--surface2);color:#a78bfa">Usuario</button>
+  </div>
+  <div class="search-row" style="grid-template-columns:1fr auto 1fr auto;margin-top:-8px">
+    <input id="input-rns" placeholder="RNS: CUIT o razon social">
+    <button onclick="buscarRNS()" style="background:var(--surface2);color:#f59e0b">Sociedades</button>
+    <input id="input-wayback" placeholder="Wayback Machine: dominio (ej: google.com)">
+    <button onclick="buscarWayback()" style="background:var(--surface2);color:var(--accent)">Wayback</button>
+  </div>
+  <div class="section-header">Datos Financieros</div>
+  <div class="search-row" style="grid-template-columns:1fr auto 1fr auto 1fr auto;margin-top:-8px">
+    <input id="input-ddjj" placeholder="DDJJ: nombre funcionario (ej: Juan Perez)">
+    <button onclick="buscarDDJJ()" style="background:var(--surface2);color:#a78bfa">DDJJ</button>
+    <input id="input-bin" placeholder="BIN: 6-8 digitos" maxlength="8">
+    <button onclick="buscarBIN()" style="background:var(--surface2);color:#60a5fa">BIN</button>
+    <input id="input-crypto" placeholder="Crypto: direccion BTC/ETH">
+    <button onclick="buscarCrypto()" style="background:var(--surface2);color:#f59e0b">Crypto</button>
+  </div>
+  <div class="section-header">Red y Dominios</div>
+  <div class="search-row" style="grid-template-columns:1fr auto 1fr auto 1fr auto;margin-top:-8px">
+    <input id="input-ct" placeholder="CT: dominio (subdominios)">
+    <button onclick="buscarCT()" style="background:var(--surface2);color:#fbbf24">CT Logs</button>
+    <input id="input-dnsdeep" placeholder="DNS Deep: dominio">
+    <button onclick="buscarDNSDeep()" style="background:var(--surface2);color:#2dd4bf">DNS Deep</button>
+    <input id="input-whois" placeholder="WHOIS: dominio (ej: google.com)">
+    <button onclick="buscarWhois()" style="background:var(--surface2);color:#a78bfa">WHOIS</button>
+  </div>
+  <div class="search-row" style="grid-template-columns:1fr auto 1fr auto;margin-top:-8px">
+    <input id="input-nmap" placeholder="Nmap: IP o dominio (ej: 192.168.1.1)">
+    <button onclick="buscarNmap()" style="background:var(--surface2);color:#ef4444">Nmap</button>
+    <input id="input-openvas" placeholder="OpenVAS: IP o dominio (escanea vulnerabilidades)">
+    <button onclick="buscarOpenVAS()" style="background:var(--surface2);color:#34d399">OpenVAS</button>
+  </div>
+  <div class="section-header">Seguridad Web</div>
+  <div class="search-row" style="grid-template-columns:1fr auto 1fr auto 1fr auto;margin-top:-8px">
+    <input id="input-cms" placeholder="CMS: URL (ej: ejemplo.com)">
+    <button onclick="buscarCMS()" style="background:var(--surface2);color:#f472b6">CMS</button>
+    <input id="input-admin" placeholder="Admin Finder: URL (ej: ejemplo.com)">
+    <button onclick="buscarAdmin()" style="background:var(--surface2);color:#fb923c">Admin</button>
+    <input id="input-secheaders" placeholder="Sec Headers: URL (ej: ejemplo.com)">
+    <button onclick="buscarSecHeaders()" style="background:var(--surface2);color:#2dd4bf">Headers</button>
+  </div>
+  <div class="section-header">OSINT / Referencias</div>
+  <div class="search-row" style="grid-template-columns:1fr auto 1fr auto;margin-top:-8px">
+    <input id="input-dorks" placeholder="Dorks: nombre, email o usuario">
+    <button onclick="buscarDorks()" style="background:var(--surface2);color:#fb923c">Dorks</button>
+    <input id="input-breach" placeholder="Breach: email">
+    <button onclick="buscarBreach()" style="background:var(--surface2);color:#ef4444">Breach</button>
+    <input id="input-paste" placeholder="Paste: email o usuario">
+    <button onclick="buscarPaste()" style="background:var(--surface2);color:#c084fc">Paste</button>
+    <input id="input-emailfinder" placeholder="EmailFinder: dominio (ej: google.com)">
+    <button onclick="buscarEmailFinder()" style="background:var(--surface2);color:#f472b6">EmailFinder</button>
+  </div>
+  <div id="loading" class="loading" style="display:none">Buscando...</div>
+  <div class="results" id="results">
+    <!-- Datos Personales -->
+    <div class="card" id="card-cuit"><h3>CUIT</h3><div class="empty">Ingresa un CUIT</div></div>
+    <div class="card" id="card-cuit-dni"><h3>CUIT x DNI</h3><div class="empty">Ingresa un DNI</div></div>
+    <div class="card" id="card-email"><h3>Email · Dominio</h3><div class="empty">Ingresa un email</div></div>
+    <div class="card" id="card-telefono"><h3>Telefono</h3><div class="empty">Ingresa un telefono</div></div>
+    <div class="card" id="card-usuario"><h3>Usuario · Redes</h3><div class="empty">Ingresa un usuario</div></div>
+    <div class="card" id="card-rns"><h3>RNS · Sociedades</h3><div class="empty">Ingresa CUIT o razon social</div></div>
+    <!-- Datos Financieros -->
+    <div class="card" id="card-ddjj"><h3>DDJJ · Funcionarios</h3><div class="empty">Ingresa un nombre de funcionario</div></div>
+    <div class="card" id="card-bin"><h3>BIN · Tarjetas</h3><div class="empty">Ingresa un BIN de 6 digitos</div></div>
+    <div class="card" id="card-crypto"><h3>Crypto · Wallet</h3><div class="empty">Ingresa direccion BTC/ETH</div></div>
+    <!-- Red y Dominios -->
+    <div class="card" id="card-ct"><h3>CT · Subdominios</h3><div class="empty">Ingresa un dominio</div></div>
+    <div class="card" id="card-dnsdeep"><h3>DNS Deep · Seguridad Email</h3><div class="empty">Ingresa un dominio</div></div>
+    <div class="card" id="card-whois"><h3>WHOIS · Dominio</h3><div class="empty">Ingresa un dominio</div></div>
+    <div class="card" id="card-nmap"><h3>Nmap · Escaneo Puertos</h3><div class="empty">Ingresa IP o dominio</div></div>
+    <div class="card" id="card-openvas"><h3>OpenVAS · Vulnerabilidades</h3><div class="empty">Ingresa IP o dominio</div></div>
+    <!-- Seguridad Web -->
+    <div class="card" id="card-cms"><h3>CMS Detector</h3><div class="empty">Ingresa URL (ej: ejemplo.com)</div></div>
+    <div class="card" id="card-admin"><h3>Admin Panel Finder</h3><div class="empty">Ingresa URL (ej: ejemplo.com)</div></div>
+    <div class="card" id="card-secheaders"><h3>Security Headers</h3><div class="empty">Ingresa URL (ej: ejemplo.com)</div></div>
+    <!-- OSINT / Referencias -->
+    <div class="card" id="card-dorks"><h3>Dorks · Google</h3><div class="empty">Ingresa nombre, email o usuario</div></div>
+    <div class="card" id="card-breach"><h3>Breach · Filtraciones</h3><div class="empty">Ingresa un email</div></div>
+    <div class="card" id="card-paste"><h3>Paste · Pastebin</h3><div class="empty">Ingresa email o usuario</div></div>
+    <div class="card" id="card-emailfinder"><h3>EmailFinder · Emails x Dominio</h3><div class="empty">Ingresa un dominio</div></div>
+  </div>
+  <div class="map-section">
+    <h3>Mapa Mundial · Geolocalizacion IP</h3>
+    <div id="map"></div>
+    <div class="ip-row">
+      <input id="input-ip" placeholder="IP (ej: 8.8.8.8)">
+      <button onclick="buscarIP()">Buscar IP</button>
+      <button onclick="miIP()">Mi IP</button>
+      <button onclick="escanearPuertos()" style="background:var(--surface2);color:var(--yellow)">Scan</button>
+    </div>
+    <div id="ip-info"></div>
+  </div>
+
+
+  <div class="footer">OSINT Dashboard · Datos de fuentes publicas &copy; 2026 MF Tech AR</div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+var map = null, marker = null;
+try { map = L.map("map").setView([20, 0], 2); L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "OpenStreetMap" }).addTo(map); } catch(e) { console.log("Leaflet no disponible, mapa deshabilitado"); }
+function g(id) { return document.getElementById(id); }
+async function ft(url, ms) { return fetch(url, { signal: AbortSignal.timeout(ms || 30000) }); }
+function abortMsg(e) { return e.name === 'TimeoutError' ? 'Tiempo de espera agotado' : e.message; }
+
+// === Project Management ===
+var proyecto = JSON.parse(localStorage.getItem('osint_proyecto') || 'null');
+function actualizarBarra() {
+  var bar = document.getElementById('project-bar');
+  var status = document.getElementById('project-status');
+  var count = document.getElementById('project-count');
+  var btnPdf = document.getElementById('btn-pdf');
+  var btnFin = document.getElementById('btn-finalizar');
+  if (proyecto) {
+    status.textContent = 'Proyecto: ' + (proyecto.titulo || 'Sin titulo');
+    count.textContent = proyecto.items.length + ' resultados';
+    btnPdf.style.display = '';
+    btnFin.style.display = '';
+  } else {
+    status.textContent = 'Sin proyecto activo';
+    count.textContent = '0 resultados';
+    btnPdf.style.display = 'none';
+    btnFin.style.display = 'none';
+  }
+}
+function nuevoProyecto() {
+  var titulo = prompt('Nombre del proyecto:', 'Investigacion ' + new Date().toLocaleDateString('es-AR'));
+  if (!titulo) return;
+  proyecto = { titulo: titulo, creado: new Date().toISOString(), items: [] };
+  localStorage.setItem('osint_proyecto', JSON.stringify(proyecto));
+  actualizarBarra();
+}
+function guardarEnProyecto(herramienta, consulta, cardId) {
+  if (!proyecto) { alert('Primero crea un proyecto (boton + Nuevo Proyecto)'); return; }
+  var card = document.getElementById(cardId);
+  var contenido = card ? card.innerText.replace(/\s+/g, ' ').trim() : consulta;
+  proyecto.items.push({
+    tool: herramienta,
+    query: consulta,
+    content: contenido,
+    raw: null,
+    timestamp: new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
+  });
+  localStorage.setItem('osint_proyecto', JSON.stringify(proyecto));
+  actualizarBarra();
+}
+function guardarCard(cardId, toolName) {
+  if (!proyecto) { alert('Primero crea un proyecto (boton + Nuevo Proyecto)'); return; }
+  var card = document.getElementById(cardId);
+  if (!card) return;
+  var contenido = card.innerText.replace(/\s+/g, ' ').trim();
+  guardarEnProyecto(toolName, contenido.substring(0, 100), cardId);
+}
+function agregarBtnGuardar(cardId, toolName, query) {
+  var card = document.getElementById(cardId);
+  if (!card) return;
+  var existing = card.querySelector('.btn-guardar-proyecto');
+  if (existing) { card.removeChild(existing); }
+  var btn = document.createElement('button');
+  btn.className = 'btn-guardar-proyecto';
+  btn.textContent = 'Guardar en proyecto';
+  btn.style.cssText = 'padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--accent);font-size:10px;cursor:pointer;margin-top:6px;font-family:inherit';
+  btn.onclick = function() { guardarEnProyecto(toolName, query, cardId); btn.textContent = '✓ Guardado'; btn.style.opacity = '.5'; };
+  card.appendChild(btn);
+}
+async function generarPDF() {
+  if (!proyecto || !proyecto.items.length) return alert('No hay datos para generar el PDF');
+  try {
+    var r = await fetch('/api/project-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: proyecto.titulo, items: proyecto.items }),
+      signal: AbortSignal.timeout(30000)
+    });
+    if (!r.ok) { var e = await r.json(); alert('Error: ' + (e.error || 'desconocido')); return; }
+    var blob = await r.blob();
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a'); a.href = url; a.download = 'informe_osint_' + proyecto.titulo.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  } catch(e) { alert('Error generando PDF: ' + e.message); }
+}
+async function finalizarProyecto() {
+  if (!proyecto) return;
+  if (proyecto.items.length === 0) { proyecto = null; localStorage.removeItem('osint_proyecto'); actualizarBarra(); return; }
+  try {
+    var r = await fetch('/api/project-save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: proyecto.titulo, items: proyecto.items }),
+      signal: AbortSignal.timeout(10000)
+    });
+    var d = await r.json();
+    if (d.success) {
+      await generarPDF();
+      proyecto = null;
+      localStorage.removeItem('osint_proyecto');
+      actualizarBarra();
+      alert('Proyecto finalizado. Datos guardados en: ' + d.archivo);
+    } else { alert('Error al guardar: ' + (d.error || 'desconocido')); }
+  } catch(e) { alert('Error al finalizar: ' + e.message); }
+}
+actualizarBarra();
+
+(function(){function add(){var cs=document.querySelectorAll('.card');for(var i=0;i<cs.length;i++){var c=cs[i];if(c.querySelector('.btn-save-card')||c.querySelector('.empty'))continue;var h=c.querySelector('h3');if(!h)continue;var b=document.createElement('span');b.className='btn-save-card';b.textContent='+';b.title='Guardar';var tn={card_cuit:'CUIT',card_email:'Email',card_telefono:'Telefono',card_usuario:'Usuario',card_ddjj:'DDJJ',card_ct:'CT Subdominios',card_breach:'Breach',card_bin:'BIN',card_crypto:'Crypto',card_whois:'WHOIS',card_dorks:'Dorks',card_paste:'Paste',card_dnsdeep:'DNS Deep',card_emailfinder:'EmailFinder',card_rns:'RNS',card_nmap:'Nmap',card_openvas:'OpenVAS',card_cuit_dni:'CUIT x DNI',card_cms:'CMS Detector',card_admin:'Admin Finder',card_secheaders:'Security Headers'}[c.id.replace(/-/g,'_')]||c.id.replace('card-','');var id_=c.id;b.onclick=function(id,tn2){return function(){guardarCard(id,tn2)}}(id_,tn);h.appendChild(b)}}function truncate(){var cs=document.querySelectorAll('.card');for(var i=0;i<cs.length;i++){var c=cs[i];if(c.querySelector('.empty')){c.classList.remove('truncated','expanded');continue}var items=c.querySelectorAll('.user-result,.field');if(items.length<=10){c.classList.remove('truncated','expanded');continue}if(c.querySelector('.card-expand'))continue;c.classList.add('truncated');var exp=document.createElement('div');exp.className='card-expand';exp.textContent='Ver mas ('+items.length+' resultados)';exp.onclick=function(){if(this.parentElement.classList.contains('expanded')){this.parentElement.classList.remove('expanded');this.parentElement.classList.add('truncated');this.textContent='Ver mas ('+items.length+' resultados)'}else{this.parentElement.classList.remove('truncated');this.parentElement.classList.add('expanded');this.textContent='Ver menos'}};c.appendChild(exp)}}var r=document.getElementById('results');if(r)new MutationObserver(function(){add();truncate()}).observe(r,{childList:true,subtree:true});var iv=setInterval(function(){add();truncate()},2000)})();
+
+function buscarCUITInput() { var v = g("input-cuit").value.trim(); if (v) { g("loading").style.display="block"; buscarCUIT(v).then(function(){g("loading").style.display="none"}); } else alert("Ingresa un CUIT"); }
+function buscarCuitPorDniInput() { var v = g("input-dni").value.trim(); if (v) { g("loading").style.display="block"; buscarCuitPorDni(v).then(function(){g("loading").style.display="none"}); } else alert("Ingresa un DNI"); }
+function buscarEmailInput() { var v = g("input-email").value.trim(); if (v) { g("loading").style.display="block"; buscarEmail(v).then(function(){g("loading").style.display="none"}); } else alert("Ingresa un email"); }
+function buscarTelefonoInput() { var v = g("input-telefono").value.trim(); if (v) { g("loading").style.display="block"; buscarTelefono(v).then(function(){g("loading").style.display="none"}); } else alert("Ingresa un telefono"); }
+function buscarUsuarioInput() { var v = g("input-usuario").value.trim(); if (v) { g("loading").style.display="block"; buscarUsuario(v).then(function(){g("loading").style.display="none"}); } else alert("Ingresa un usuario"); }
+
+async function buscarTodo() {
+  var cuit = g("input-cuit").value.trim();
+  var email = g("input-email").value.trim();
+  var tel = g("input-telefono").value.trim();
+  var user = g("input-usuario").value.trim();
+  if (!cuit && !email && !tel && !user) return alert("Completa al menos un campo");
+  g("loading").style.display = "block";
+  if (cuit) await buscarCUIT(cuit);
+  if (email) await buscarEmail(email);
+  if (tel) await buscarTelefono(tel);
+  if (user) await buscarUsuario(user);
+  g("loading").style.display = "none";
+}
+
+async function buscarCUIT(cuit) {
+  var card = g("card-cuit");
+  card.innerHTML = "<h3>CUIT</h3><div class=\"loading\" style=\"display:block\">Consultando ARCA...</div>";
+  try {
+    var r = await ft("/api/cuit/" + cuit, 120000);
+    var d = await r.json();
+    if (d.error) {
+      var links = d.links || {};
+      card.innerHTML = "<h3>CUIT</h3><div class=\"empty\">" + d.error + "</div>" +
+        "<div class=\"empty\" style=\"padding:4px;font-size:11px\">" +
+        (links.cuitonline ? "<a href=\"" + links.cuitonline + "\" target=\"_blank\">Abrir en cuitonline.com</a> | " : "") +
+        (links.dateas ? "<a href=\"" + links.dateas + "\" target=\"_blank\">Abrir en Dateas</a> | " : "") +
+        "<a href=\"https://www.cuitonline.com/search.php?q=" + cuit + "\" target=\"_blank\">Buscar en cuitonline</a></div>";
+      return;
+    }
+    var html = "<h3>CUIT <span class=\"badge\">ARCA</span></h3>" +
+      "<div class=\"field\"><span class=\"key\">CUIT</span><span class=\"val\">" + cuit + "</span></div>";
+    for (var key in d) {
+      if (key === "cuit" || key === "fuente") continue;
+      if (typeof d[key] === "string" && d[key]) {
+        html += "<div class=\"field\"><span class=\"key\">" + key + "</span><span class=\"val\">" + d[key] + "</span></div>";
+      }
+    }
+    html += "<div class=\"field\"><span class=\"key\">Fuente</span><span class=\"val\" style=\"font-size:10px\">" + (d.fuente || "ARCA") + "</span></div>" +
+      "<div class=\"empty\" style=\"padding:4px;font-size:11px\"><a href=\"https://www.cuitonline.com/detalle/" + cuit + ".html\" target=\"_blank\">Ver en cuitonline.com</a></div>";
+    card.innerHTML = html;
+  } catch(e) {
+    card.innerHTML = "<h3>CUIT</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>" +
+      "<div class=\"empty\" style=\"padding:4px;font-size:11px\"><a href=\"https://www.cuitonline.com/search.php?q=" + cuit + "\" target=\"_blank\">Abrir en cuitonline.com</a></div>";
+  }
+  // BCRA credit check
+  card.innerHTML = card.innerHTML + "<div style=\"margin-top:8px;border-top:1px solid var(--border);padding-top:8px\"><h3 style=\"font-size:10px\">BCRA · Central de Deudores</h3><div class=\"loading\" style=\"display:block\">Consultando BCRA...</div></div>";
+  try {
+    var rb = await ft("/api/bcra/" + cuit, 15000);
+    var db = await rb.json();
+    var bhtml = "<div style=\"margin-top:8px;border-top:1px solid var(--border);padding-top:8px\"><h3 style=\"font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px\">BCRA · Central de Deudores</h3>";
+    if (db.nombre) {
+      bhtml += "<div class=\"field\" style=\"border-bottom:2px solid var(--accent);padding:6px 0;margin-bottom:4px\"><span class=\"key\" style=\"font-size:11px\">Titular (BCRA)</span><span class=\"val\" style=\"font-size:13px;font-weight:700;color:var(--accent)\">" + db.nombre + "</span></div>";
+    }
+    if (db.encontrado === false || db.error) {
+      bhtml += "<div class=\"field\"><span class=\"key\">Situacion</span><span class=\"val green\">" + (db.mensaje || 'Sin datos') + "</span></div>";
+    } else {
+      bhtml += "<div class=\"field\"><span class=\"key\">Periodo</span><span class=\"val\">" + db.periodo + "</span></div>";
+      bhtml += "<div class=\"field\"><span class=\"key\">Situacion maxima</span><span class=\"val\">" + db.situacion_descripcion + "</span></div>";
+      if (db.entidades && db.entidades.length) {
+        for (var bi = 0; bi < db.entidades.length; bi++) {
+          var be = db.entidades[bi];
+          bhtml += "<div class=\"user-result\"><span class=\"key\">" + be.entidad + "</span><span class=\"val " + (be.situacion > 1 ? "red" : "green") + "\">" + be.descripcion + "</span></div>";
+        }
+      }
+    }
+    bhtml += "<div class=\"field\"><span class=\"key\">Fuente</span><span class=\"val\" style=\"font-size:10px\"><a href=\"" + db.fuente + "\" target=\"_blank\">BCRA</a></span></div>";
+    bhtml += "</div>";
+    card.innerHTML = card.innerHTML.replace(/<div style="margin-top:8px;border-top:1px solid var\(--border\).*?Consultando BCRA\.\.\.<\/div><\/div>/, bhtml);
+  } catch(e) {
+    card.innerHTML = card.innerHTML.replace(/<div style="margin-top:8px;border-top:1px solid var\(--border\).*?Consultando BCRA\.\.\.<\/div><\/div>/, "<div class=\"empty\" style=\"padding:8px\">Error BCRA: " + abortMsg(e) + "</div>");
+  }
+}
+
+async function buscarCuitPorDni(dni) {
+  var dniRaw = g("input-dni").value.replace(/\D/g, "");
+  var genero = g("input-genero").value;
+  if (!dniRaw || dniRaw.length < 7) return alert("DNI invalido (7 u 8 digitos)");
+  var card = g("card-cuit-dni");
+  card.innerHTML = "<h3>CUIT x DNI</h3><div class=\"loading\" style=\"display:block\">Calculando CUIT...</div>";
+  try {
+    var r = await ft("/api/cuit-dni/" + dniRaw + "?genero=" + genero, 10000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>CUIT x DNI</h3><div class=\"empty\">Error: " + d.error + "</div>"; return; }
+    var html = "<h3>CUIT x DNI</h3>";
+    if (d.nombre) {
+      html += "<div class=\"field\" style=\"border-bottom:2px solid var(--accent);padding:8px 0;margin-bottom:6px\"><span class=\"key\" style=\"font-size:12px\">Nombre / Razon Social</span><span class=\"val\" style=\"font-size:15px;font-weight:700;color:var(--accent)\">" + d.nombre + "</span></div>";
+    }
+    html += "<div class=\"field\"><span class=\"key\">DNI</span><span class=\"val\">" + d.dni + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Genero</span><span class=\"val\">" + d.genero + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">CUIT</span><span class=\"val\" style=\"font-size:16px;font-weight:700;color:var(--accent)\">" + d.cuit + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Prefijo</span><span class=\"val\">" + d.prefijo + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Digito verificador</span><span class=\"val\">" + d.digitoVerificador + "</span></div>";
+    html += "<div style=\"border-top:1px solid var(--border);margin-top:6px;padding-top:6px\">";
+    html += "<div class=\"empty\" style=\"padding:2px;font-size:11px\"><a href=\"" + d.enlaces.cuitonline + "\" target=\"_blank\">Ver en cuitonline.com</a></div>";
+    html += "<div class=\"empty\" style=\"padding:2px;font-size:11px\"><a href=\"" + d.enlaces.dateas + "\" target=\"_blank\">Ver en Dateas</a></div>";
+    html += "<div class=\"empty\" style=\"padding:2px;font-size:11px\"><a href=\"" + d.enlaces.constanciaAnses + "\" target=\"_blank\">Constancia oficial ANSES</a></div>";
+    html += "</div>";
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>CUIT x DNI</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function buscarEmail(email) {
+  var card = g("card-email");
+  card.innerHTML = "<h3>Email · Dominio</h3><div class=\"loading\" style=\"display:block\">Analizando dominio...</div>";
+  var html = "";
+  try {
+    var r = await ft("/api/dominio/" + encodeURIComponent(email), 10000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>Email · Dominio</h3><div class=\"empty\">" + d.error + "</div>"; return; }
+    html += "<div class=\"field\"><span class=\"key\">Email</span><span class=\"val\">" + email + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Dominio</span><span class=\"val\">" + d.dominio + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Servidor MX</span><span class=\"val\">" + (d.mx || "-") + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">IP</span><span class=\"val\">" + (d.ip || "-") + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Servidores MX</span><span class=\"val\">" + (d.mxCount || 0) + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">SPF</span><span class=\"val\">" + (d.spf ? "Si" : "-") + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Mail provider</span><span class=\"val\">" + (d.mx && d.mx.includes("google") ? "Google Workspace" : d.mx && d.mx.includes("outlook") ? "Outlook" : d.mx && d.mx.includes("proton") ? "Proton" : d.mx && d.mx.includes("zoho") ? "Zoho" : d.mx ? d.mx.split(".").slice(-2,-1)[0] || d.mx : "-") + "</span></div>";
+  } catch(e) { html = "<div class=\"field\"><span class=\"key\">Error DNS</span><span class=\"val\">" + abortMsg(e) + "</span></div>"; }
+
+  // Holehe: check email presence on 120+ services
+  card.innerHTML = "<h3>Email · Dominio</h3>" + html + "<div class=\"loading\" style=\"display:block\">Holehe: buscando en 120+ servicios...</div>";
+  try {
+    var rh = await ft("/api/holehe/" + encodeURIComponent(email), 90000);
+    var dh = await rh.json();
+    if (dh.resultados && dh.resultados.length) {
+      html += "<div style=\"font-size:10px;color:var(--text2);margin:6px 0 4px;font-weight:600\">Registrado en (holehe):</div>";
+      for (var i = 0; i < dh.resultados.length; i++) {
+        html += "<div class=\"user-result\"><span class=\"key\">" + dh.resultados[i].servicio + "</span><span class=\"val green\">Si</span></div>";
+      }
+      html += "<div class=\"field\"><span class=\"key\">Total servicios</span><span class=\"val\">" + dh.total + "</span></div>";
+    } else if (dh.total === 0) {
+      html += "<div class=\"empty\" style=\"padding:8px\">No se encontro en ningun servicio</div>";
+    } else {
+      html += "<div class=\"empty\" style=\"padding:8px\">Error holehe: " + (dh.error || "sin datos") + "</div>";
+    }
+  } catch(e) { html += "<div class=\"empty\" style=\"padding:8px\">Error holehe: " + abortMsg(e) + "</div>"; }
+
+  card.innerHTML = "<h3>Email · Dominio <span class=\"badge\">holehe</span></h3>" + html;
+}
+
+async function buscarTelefono(tel) {
+  var card = g("card-telefono");
+  var limpio = tel.replace(/\D/g, "");
+  card.innerHTML = "<h3>Telefono</h3><div class=\"loading\" style=\"display:block\">Analizando numero...</div>";
+  var html = "";
+  html += "<div class=\"field\"><span class=\"key\">Numero</span><span class=\"val\">" + tel + "</span></div>" +
+    "<div class=\"field\"><span class=\"key\">Formato limpio</span><span class=\"val\">+" + limpio + "</span></div>" +
+    "<div class=\"field\"><span class=\"key\">Pais</span><span class=\"val\">" + (limpio.startsWith("54") ? "Argentina" : "-") + "</span></div>" +
+    "<div class=\"field\"><span class=\"key\">Tipo</span><span class=\"val\">" + (limpio.length >= 11 ? "Movil" : limpio.length >= 8 ? "Fijo" : "-") + "</span></div>";
+
+  try {
+    var r = await ft("/api/phonecheck/" + encodeURIComponent(tel), 30000);
+    var d = await r.json();
+    html += "<div class=\"field\"><span class=\"key\">Carrier estimado</span><span class=\"val\">" + d.carrier + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">E.164</span><span class=\"val\">" + d.e164 + "</span></div>";
+    if (d.resultados && d.resultados.length) {
+      html += "<div style=\"font-size:10px;color:var(--text2);margin:6px 0 4px;font-weight:600\">Presencia en servicios:</div>";
+      for (var i = 0; i < d.resultados.length; i++) {
+        var s = d.resultados[i];
+        var estado = "";
+        if (s.automatico) {
+          estado = s.disponible ? "<span class=\"val green\">Disponible</span>" : "<span class=\"val red\">No detectado</span>";
+        }
+        html += "<div class=\"user-result\"><span class=\"key\">" + s.nombre + "</span>" +
+          "<div class=\"actions\">" +
+          "<a href=\"" + s.url + "\" target=\"_blank\" style=\"font-size:10px\">Abrir</a>" +
+          (estado ? estado : "<span class=\"val\" style=\"font-size:10px\">Manual</span>") +
+          "</div></div>";
+      }
+    }
+  } catch(e) {
+    html += "<div class=\"field\"><span class=\"key\">Error</span><span class=\"val\">" + abortMsg(e) + "</span></div>";
+  }
+  card.innerHTML = "<h3>Telefono</h3>" + html;
+}
+
+async function buscarUsuario(user) {
+  var card = g("card-usuario");
+  card.innerHTML = "<h3>Usuario · Redes</h3><div class=\"loading\" style=\"display:block\">Verificando presencia (HEAD)...</div>";
+  var headResults = []; var sherlockResults = [];
+  try {
+    var r = await ft("/api/usuario/" + encodeURIComponent(user), 30000);
+    var d = await r.json();
+    headResults = d.resultados || [];
+  } catch(e) { headResults = []; g("card-usuario").innerHTML = "<h3>Usuario · Redes</h3><div class=\"empty\">HEAD: " + abortMsg(e) + "</div>"; }
+  card.innerHTML = "<h3>Usuario · Redes</h3><div class=\"loading\" style=\"display:block\">Ejecutando Sherlock (~300 sitios)...</div>";
+  try {
+    var r2 = await ft("/api/sherlock/" + encodeURIComponent(user), 130000);
+    var d2 = await r2.json();
+    sherlockResults = d2.resultados || [];
+  } catch(e) { sherlockResults = []; }
+  var headCount = headResults.filter(function(s) { return s.existe; }).length;
+  var html = "<h3>Usuario · Redes" +
+    " <span class=\"badge\">HEAD: " + headCount + "/" + headResults.length + "</span>" +
+    " <span class=\"badge\" style=\"background:#a78bfa33;color:#a78bfa\">Sherlock: " + sherlockResults.length + " sitios</span></h3>" +
+    "<div class=\"field\"><span class=\"key\">Usuario</span><span class=\"val\">" + user + "</span></div>";
+  if (headResults.length) {
+    html += "<div style=\"font-size:10px;color:var(--text2);margin:6px 0 4px;font-weight:600\">HEAD (respuesta directa)</div>";
+    for (var i = 0; i < headResults.length; i++) {
+      var s = headResults[i];
+      var statusHtml = "<span class=\"val " + (s.existe ? "green" : "red") + "\">" + (s.existe ? "Encontrado" : "No encontrado") + "</span>";
+      var delHtml = "";
+      if (s.existe && s.deleteUrl) {
+        delHtml = "<a href=\"" + s.deleteUrl + "\" target=\"_blank\" class=\"del-link\" title=\"Eliminar cuenta de " + s.nombre + "\">Eliminar</a>";
+      } else if (s.existe && !s.deleteUrl) {
+        delHtml = "<span class=\"del-link\" style=\"opacity:.3;cursor:default\" title=\"No disponible\">Eliminar</span>";
+      }
+      html += "<div class=\"user-result\"><span class=\"key\">" + s.nombre + "</span>" +
+        "<div class=\"actions\">" + delHtml + statusHtml + "</div></div>";
+    }
+  }
+  if (sherlockResults.length) {
+    html += "<div style=\"font-size:10px;color:var(--text2);margin:8px 0 4px;font-weight:600\">Sherlock (~300 plataformas)</div>";
+    for (var i = 0; i < sherlockResults.length; i++) {
+      var s2 = sherlockResults[i];
+      html += "<div class=\"user-result\"><span class=\"key\">" + s2.nombre + "</span>" +
+        "<div class=\"actions\"><a href=\"" + s2.url + "\" target=\"_blank\" style=\"font-size:10px\">Abrir</a>" +
+        "<span class=\"val green\" style=\"font-size:11px\">Encontrado</span></div></div>";
+    }
+  } else {
+    html += "<div class=\"empty\">Sin resultados de Sherlock</div>";
+  }
+  card.innerHTML = html;
+}
+
+async function buscarIP() {
+  var ip = g("input-ip").value.trim();
+  if (!ip) return alert("Ingresa una IP");
+  await consultarIP(ip);
+}
+
+async function miIP() {
+  g("ip-info").innerHTML = "<div class=\"loading\" style=\"display:block;grid-column:1/-1\">Obteniendo tu IP...</div>";
+  try {
+    var r = await ft("https://api.ipify.org?format=json", 10000);
+    var d = await r.json();
+    g("input-ip").value = d.ip;
+    await consultarIP(d.ip);
+  } catch(e) {
+    g("ip-info").innerHTML = "<div class=\"empty\" style=\"grid-column:1/-1\">Error obteniendo IP</div>";
+  }
+}
+
+async function consultarIP(ip) {
+  g("ip-info").innerHTML = "<div class=\"loading\" style=\"display:block;grid-column:1/-1\">Consultando IP...</div>";
+  try {
+    var r = await ft("/api/ip/" + encodeURIComponent(ip), 15000);
+    var d = await r.json();
+    if (d.status !== "success") {
+      g("ip-info").innerHTML = "<div class=\"empty\" style=\"grid-column:1/-1\">IP no encontrada: " + (d.message || "error") + "</div>";
+      return;
+    }
+    if (marker && map) map.removeLayer(marker);
+    if (map) { map.setView([d.lat, d.lon], 10); }
+    if (typeof L !== 'undefined' && map) { marker = L.marker([d.lat, d.lon]).addTo(map); marker.bindPopup("<b>" + d.query + "</b><br>" + d.city + ", " + d.regionName + "<br>" + d.country).openPopup(); }
+    var html = "";
+    html += "<div class=\"field\" style=\"grid-column:1/-1\"><span class=\"key\">IP</span><span class=\"val\" style=\"font-weight:700\">" + d.query + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Pais</span><span class=\"val\">" + (d.country || "-") + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Region</span><span class=\"val\">" + (d.regionName || "-") + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Ciudad</span><span class=\"val\">" + (d.city || "-") + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Codigo Postal</span><span class=\"val\">" + (d.zip || "-") + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Coordenadas</span><span class=\"val\">" + d.lat.toFixed(4) + ", " + d.lon.toFixed(4) + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">ISP</span><span class=\"val\">" + (d.isp || "-") + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Organizacion</span><span class=\"val\">" + (d.org || "-") + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">AS</span><span class=\"val\">" + (d.as || "-") + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Zona Horaria</span><span class=\"val\">" + (d.timezone || "-") + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Hostname</span><span class=\"val\" style=\"font-size:10px\">" + (d.hostname || "-") + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Proxy/VPN</span><span class=\"val\"><span class=\"ip-tag " + (d.proxy ? "yes" : "no") + "\">" + (d.proxy ? "Si" : "No") + "</span></span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Hosting</span><span class=\"val\"><span class=\"ip-tag " + (d.hosting ? "yes" : "no") + "\">" + (d.hosting ? "Si" : "No") + "</span></span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Mobile</span><span class=\"val\"><span class=\"ip-tag " + (d.mobile ? "yes" : "no") + "\">" + (d.mobile ? "Si" : "No") + "</span></span></div>";
+    g("ip-info").innerHTML = html;
+  } catch(e) {
+    g("ip-info").innerHTML = "<div class=\"empty\" style=\"grid-column:1/-1\">Error: " + e.message + "</div>";
+  }
+}
+
+async function buscarWayback() {
+  var dominio = g("input-wayback").value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  if (!dominio) return alert("Ingresa un dominio");
+  var card = g("card-email");
+  var existing = card.innerHTML;
+  card.innerHTML = existing + "<div style=\"margin-top:8px;border-top:1px solid var(--border);padding-top:8px\"><h3 style=\"font-size:10px\">Wayback Machine</h3><div class=\"loading\" style=\"display:block\">Consultando archivo historico...</div></div>";
+  try {
+    var r = await ft("/api/wayback/" + encodeURIComponent(dominio), 20000);
+    var d = await r.json();
+    var whtml = "<div style=\"margin-top:8px;border-top:1px solid var(--border);padding-top:8px\"><h3 style=\"font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px\">Wayback Machine</h3>";
+    whtml += "<div class=\"field\"><span class=\"key\">Dominio</span><span class=\"val\">" + dominio + "</span></div>";
+    whtml += "<div class=\"field\"><span class=\"key\">Snapshot mas antiguo</span><span class=\"val\" style=\"font-size:10px\">" + (d.oldest || d.oldest_error || "-") + "</span></div>";
+    whtml += "<div class=\"field\"><span class=\"key\">Snapshot mas reciente</span><span class=\"val\" style=\"font-size:10px\">" + (d.newest || d.newest_error || "-") + "</span></div>";
+    whtml += "<div class=\"field\"><span class=\"key\">Total snapshots</span><span class=\"val\">" + (d.snapshots || d.snapshots_error || "-") + "</span></div>";
+    whtml += "<div class=\"field\"><span class=\"key\">Cerca de 2020</span><span class=\"val\" style=\"font-size:10px\">" + (d.near_2020 || "-") + "</span></div>";
+    whtml += "<div class=\"field\"><span class=\"key\">Cerca de ahora</span><span class=\"val\" style=\"font-size:10px\">" + (d.near_now || "-") + "</span></div>";
+    whtml += "<div class=\"empty\" style=\"padding:4px;font-size:11px\"><a href=\"https://web.archive.org/web/*/" + dominio + "\" target=\"_blank\">Ver todos los snapshots</a></div>";
+    whtml += "</div>";
+    card.innerHTML = existing + whtml;
+  } catch(e) {
+    card.innerHTML = existing + "<div class=\"empty\" style=\"padding:8px\">Error Wayback: " + e.message + "</div>";
+  }
+}
+
+async function buscarDDJJ() {
+  var nombre = g("input-ddjj").value.trim();
+  if (!nombre) return alert("Ingresa un nombre de funcionario");
+  var card = g("card-ddjj");
+  card.innerHTML = "<h3>DDJJ · Funcionarios</h3><div class=\"loading\" style=\"display:block\">Buscando declaraciones juradas...</div>";
+  try {
+    var r = await ft("/api/ddjj/" + encodeURIComponent(nombre), 15000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>DDJJ · Funcionarios</h3><div class=\"empty\">Error: " + d.error + "</div>"; return; }
+    if (!d.encontrado) { card.innerHTML = "<h3>DDJJ · Funcionarios</h3><div class=\"empty\">" + (d.mensaje || 'Sin resultados') + "</div>"; return; }
+    var html = "<h3>DDJJ · Funcionarios <span class=\"badge\" style=\"background:#a78bfa33;color:#a78bfa\">" + d.total + " registros</span></h3>";
+    html += "<div class=\"field\"><span class=\"key\">Buscado</span><span class=\"val\">" + nombre + "</span></div>";
+    for (var i = 0; i < d.resultados.length; i++) {
+      var r = d.resultados[i];
+      html += "<div style=\"border-bottom:1px solid var(--border);padding:4px 0\">" +
+        "<div style=\"font-size:11px;font-weight:600;color:var(--accent)\">" + r.funcionario + "</div>" +
+        "<div style=\"font-size:10px;color:var(--text2)\">" + (r.cuit && r.cuit !== 'N/D' ? "CUIT " + r.cuit + " · " : "") + r.anio + (r.tipo && r.tipo !== 'N/D' ? " · " + r.tipo : "") + "</div>" +
+        (r.cargo && r.cargo !== 'N/D' && r.cargo !== 'No especificado' ? "<div style=\"font-size:10px;color:var(--text2)\">" + r.cargo + "</div>" : "") +
+        "</div>";
+    }
+    html += "<div class=\"empty\" style=\"padding:4px;font-size:11px\"><a href=\"" + d.fuente + "\" target=\"_blank\">Fuente: datos.jus.gob.ar</a></div>";
+    card.innerHTML = html;
+  } catch(e) {
+    card.innerHTML = "<h3>DDJJ · Funcionarios</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>";
+  }
+}
+
+async function buscarCT() {
+  var dominio = g("input-ct").value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  if (!dominio) return alert("Ingresa un dominio");
+  var card = g("card-ct");
+  card.innerHTML = "<h3>CT · Subdominios</h3><div class=\"loading\" style=\"display:block\">Consultando Certificate Transparency logs...</div>";
+  try {
+    var r = await ft("/api/ct/" + encodeURIComponent(dominio), 20000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>CT · Subdominios</h3><div class=\"empty\">Error: " + d.error + "</div>"; return; }
+    if (!d.total) { card.innerHTML = "<h3>CT · Subdominios</h3><div class=\"empty\">Sin subdominios encontrados via CT logs</div>"; return; }
+    var html = "<h3>CT · Subdominios <span class=\"badge\" style=\"background:#fbbf2433;color:#fbbf24\">" + d.total + " encontrados</span></h3>";
+    html += "<div class=\"field\"><span class=\"key\">Dominio</span><span class=\"val\">" + d.domain + "</span></div>";
+    html += "<div style=\"font-size:10px;max-height:280px;overflow-y:auto\">";
+    for (var i = 0; i < d.subdominios.length; i++) {
+      html += "<div class=\"user-result\"><span class=\"key\" style=\"font-size:10px;font-family:monospace\">" + d.subdominios[i] + "</span>" +
+        "<div class=\"actions\"><a href=\"https://" + d.subdominios[i] + "\" target=\"_blank\" style=\"font-size:10px\">Abrir</a></div></div>";
+    }
+    html += "</div><div class=\"empty\" style=\"padding:4px;font-size:11px\"><a href=\"https://crt.sh/?q=%25." + dominio + "\" target=\"_blank\">Ver todos en crt.sh</a></div>";
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>CT · Subdominios</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function buscarBreach() {
+  var email = g("input-breach").value.trim().toLowerCase();
+  if (!email) return alert("Ingresa un email");
+  var card = g("card-breach");
+  card.innerHTML = "<h3>Breach · Filtraciones</h3><div class=\"loading\" style=\"display:block\">Consultando leakcheck.net...</div>";
+  try {
+    var r = await ft("/api/breach/" + encodeURIComponent(email), 15000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>Breach · Filtraciones</h3><div class=\"empty\">Error: " + d.error + "</div>"; return; }
+    if (!d.encontrado) { card.innerHTML = "<h3>Breach · Filtraciones</h3><div class=\"empty\">" + (d.mensaje || 'Sin resultados') + "</div>"; return; }
+    var html = "<h3>Breach · Filtraciones <span class=\"badge red\">" + d.total + " registros</span></h3>";
+    html += "<div class=\"field\"><span class=\"key\">Email</span><span class=\"val\">" + email + "</span></div>";
+    if (d.campos_expuestos && d.campos_expuestos.length) {
+      html += "<div class=\"field\"><span class=\"key\">Campos expuestos</span><span class=\"val\" style=\"font-size:10px\">" + d.campos_expuestos.join(", ") + "</span></div>";
+    }
+    if (d.fuentes && d.fuentes.length) {
+      html += "<div style=\"font-size:10px;color:var(--text2);margin:6px 0 4px;font-weight:600\">Fuentes de filtracion:</div>";
+      for (var i = 0; i < d.fuentes.length; i++) {
+        html += "<div class=\"user-result\"><span class=\"key\" style=\"font-size:10px\">" + d.fuentes[i] + "</span></div>";
+      }
+    }
+    html += "<div class=\"empty\" style=\"padding:4px;font-size:11px\"><a href=\"https://leakcheck.net/\" target=\"_blank\">Fuente: leakcheck.net</a></div>";
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>Breach · Filtraciones</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function buscarBIN() {
+  var bin = g("input-bin").value.replace(/\D/g, "").slice(0, 8);
+  if (bin.length < 6) return alert("Ingresa al menos 6 digitos");
+  var card = g("card-bin");
+  card.innerHTML = "<h3>BIN · Tarjetas</h3><div class=\"loading\" style=\"display:block\">Consultando BIN...</div>";
+  try {
+    var r = await ft("/api/bin/" + bin, 10000);
+    var d = await r.json();
+    if (d.error || !d.encontrado) { card.innerHTML = "<h3>BIN · Tarjetas</h3><div class=\"empty\">" + (d.error || d.mensaje || 'No encontrado') + "</div>"; return; }
+    var html = "<h3>BIN · Tarjetas</h3>" +
+      "<div class=\"field\"><span class=\"key\">BIN</span><span class=\"val\">" + bin + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Esquema</span><span class=\"val\">" + d.esquema + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Tipo</span><span class=\"val\">" + d.tipo + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Marca</span><span class=\"val\">" + d.marca + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Banco</span><span class=\"val\">" + d.banco + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Pais</span><span class=\"val\">" + d.pais + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Moneda</span><span class=\"val\">" + d.moneda + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Prepagada</span><span class=\"val\">" + (d.prepago ? "Si" : "No") + "</span></div>" +
+      "<div class=\"empty\" style=\"padding:4px;font-size:11px\"><a href=\"https://binlist.net/\" target=\"_blank\">Fuente: binlist.net</a></div>";
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>BIN · Tarjetas</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function buscarCrypto() {
+  var addr = g("input-crypto").value.trim();
+  if (!addr) return alert("Ingresa una direccion BTC o ETH");
+  var card = g("card-crypto");
+  card.innerHTML = "<h3>Crypto · Wallet</h3><div class=\"loading\" style=\"display:block\">Consultando blockchain...</div>";
+  try {
+    var r = await ft("/api/crypto/" + encodeURIComponent(addr), 15000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>Crypto · Wallet</h3><div class=\"empty\">Error: " + d.error + "</div>"; return; }
+    if (!d.encontrado) { card.innerHTML = "<h3>Crypto · Wallet</h3><div class=\"empty\">" + (d.mensaje || 'Sin datos') + "</div>"; return; }
+    var html = "<h3>Crypto · Wallet <span class=\"badge\" style=\"background:#f59e0b33;color:#f59e0b\">" + d.tipo + "</span></h3>";
+    html += "<div class=\"field\"><span class=\"key\">Direccion</span><span class=\"val\" style=\"font-size:9px;word-break:break-all\">" + d.address + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Tipo</span><span class=\"val\">" + d.tipo + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Total TX</span><span class=\"val\">" + d.total_tx + "</span></div>";
+    if (d.saldo) html += "<div class=\"field\"><span class=\"key\">Saldo</span><span class=\"val\">" + d.saldo + "</span></div>";
+    if (d.total_recibido) html += "<div class=\"field\"><span class=\"key\">Total recibido</span><span class=\"val\">" + d.total_recibido + "</span></div>";
+    if (d.total_enviado) html += "<div class=\"field\"><span class=\"key\">Total enviado</span><span class=\"val\">" + d.total_enviado + "</span></div>";
+    if (d.transacciones && d.transacciones.length) {
+      html += "<div style=\"font-size:10px;color:var(--text2);margin:6px 0 4px;font-weight:600\">Ultimas TX:</div>";
+      for (var i = 0; i < d.transacciones.length; i++) {
+        var t = d.transacciones[i];
+        html += "<div style=\"border-bottom:1px solid var(--border);padding:3px 0;font-size:9px;font-family:monospace\">" +
+          t.hash.slice(0, 16) + "... · " + (t.valor || t.total) + " · " + (t.fecha || '') +
+          (t.desde ? "<br>De: " + t.desde.slice(0, 12) + "..." : "") +
+          (t.hasta ? "<br>A: " + t.hasta.slice(0, 12) + "..." : "") +
+          "</div>";
+      }
+    }
+    var explorer = d.tipo === 'BTC' ? 'https://blockchain.info/address/' + addr : 'https://etherscan.io/address/' + addr;
+    html += "<div class=\"empty\" style=\"padding:4px;font-size:11px\"><a href=\"" + explorer + "\" target=\"_blank\">Ver en explorer</a></div>";
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>Crypto · Wallet</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function buscarWhois() {
+  var dominio = g("input-whois").value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  if (!dominio) return alert("Ingresa un dominio");
+  var card = g("card-whois");
+  card.innerHTML = "<h3>WHOIS · Dominio</h3><div class=\"loading\" style=\"display:block\">Consultando WHOIS...</div>";
+  try {
+    var r = await ft("/api/whois/" + encodeURIComponent(dominio), 15000);
+    var d = await r.json();
+    if (d.error || !d.encontrado) { card.innerHTML = "<h3>WHOIS · Dominio</h3><div class=\"empty\">" + (d.error || d.mensaje || 'No encontrado') + "</div>"; return; }
+    var html = "<h3>WHOIS · Dominio</h3>" +
+      "<div class=\"field\"><span class=\"key\">Dominio</span><span class=\"val\">" + d.domain + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Registrar</span><span class=\"val\">" + d.registrar + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Creado</span><span class=\"val\" style=\"font-size:10px\">" + d.creado + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Expira</span><span class=\"val\" style=\"font-size:10px\">" + d.expira + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Actualizado</span><span class=\"val\" style=\"font-size:10px\">" + d.actualizado + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Organizacion</span><span class=\"val\">" + d.organizacion + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Pais</span><span class=\"val\">" + d.pais + "</span></div>" +
+      "<div class=\"field\"><span class=\"key\">Estado</span><span class=\"val\">" + d.estado + "</span></div>";
+    if (Array.isArray(d.nameservers)) {
+      html += "<div class=\"field\"><span class=\"key\">Nameservers</span><span class=\"val\" style=\"font-size:10px\">" + d.nameservers.join(", ") + "</span></div>";
+    }
+    if (d.emails && d.emails.length) {
+      html += "<div class=\"field\"><span class=\"key\">Emails</span><span class=\"val\" style=\"font-size:10px\">" + (Array.isArray(d.emails) ? d.emails.join(", ") : d.emails) + "</span></div>";
+    }
+    html += "<div class=\"empty\" style=\"padding:4px;font-size:11px\"><a href=\"https://who.is/whois/" + dominio + "\" target=\"_blank\">Ver WHOIS completo</a></div>";
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>WHOIS · Dominio</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function buscarDorks() {
+  var target = g("input-dorks").value.trim();
+  if (!target) return alert("Ingresa un nombre, email o usuario");
+  var card = g("card-dorks");
+  card.innerHTML = "<h3>Dorks · Google</h3><div class=\"loading\" style=\"display:block\">Generando dorks...</div>";
+  try {
+    var r = await ft("/api/dorks/" + encodeURIComponent(target), 5000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>Dorks · Google</h3><div class=\"empty\">Error: " + d.error + "</div>"; return; }
+    var html = "<h3>Dorks · Google <span class=\"badge\" style=\"background:#fb923c33;color:#fb923c\">" + d.total + " dorks</span></h3>";
+    html += "<div class=\"field\"><span class=\"key\">Target</span><span class=\"val\">" + d.target + "</span></div>";
+    for (var i = 0; i < d.dorks.length; i++) {
+      var dk = d.dorks[i];
+      html += "<div class=\"user-result\"><span class=\"key\" style=\"font-size:10px;font-family:monospace\">" + dk.dork + "</span>" +
+        "<div class=\"actions\"><a href=\"" + dk.url + "\" target=\"_blank\" style=\"font-size:10px\">Buscar</a></div></div>";
+    }
+    html += "<div class=\"empty\" style=\"padding:4px;font-size:11px\">Abre cada dork en Google manualmente</div>";
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>Dorks · Google</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function buscarPaste() {
+  var query = g("input-paste").value.trim();
+  if (!query) return alert("Ingresa un email o usuario");
+  var card = g("card-paste");
+  card.innerHTML = "<h3>Paste · Pastebin</h3><div class=\"loading\" style=\"display:block\">Buscando en psbdmp.ws...</div>";
+  try {
+    var r = await ft("/api/paste/" + encodeURIComponent(query), 20000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>Paste · Pastebin</h3><div class=\"empty\">Error: " + d.error + "</div>"; return; }
+    if (!d.encontrado) { card.innerHTML = "<h3>Paste · Pastebin</h3><div class=\"empty\">" + (d.mensaje || 'Sin resultados') + "</div>"; return; }
+    var html = "<h3>Paste · Pastebin <span class=\"badge\" style=\"background:#c084fc33;color:#c084fc\">" + d.total + " pastes</span></h3>";
+    html += "<div class=\"field\"><span class=\"key\">Buscado</span><span class=\"val\">" + d.query + "</span></div>";
+    for (var i = 0; i < d.resultados.length; i++) {
+      var p = d.resultados[i];
+      html += "<div class=\"user-result\"><span class=\"key\">" + p.id + " <span style=\"color:var(--text2);font-size:9px\">(" + p.fecha + ")</span></span>" +
+        "<div class=\"actions\"><a href=\"" + p.url + "\" target=\"_blank\" style=\"font-size:10px\">Abrir</a></div></div>";
+    }
+    html += "<div class=\"empty\" style=\"padding:4px;font-size:11px\"><a href=\"https://psbdmp.ws/\" target=\"_blank\">Fuente: psbdmp.ws</a></div>";
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>Paste · Pastebin</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function buscarDNSDeep() {
+  var dominio = g("input-dnsdeep").value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  if (!dominio) return alert("Ingresa un dominio");
+  var card = g("card-dnsdeep");
+  card.innerHTML = "<h3>DNS Deep · Seguridad Email</h3><div class=\"loading\" style=\"display:block\">Analizando DNS...</div>";
+  try {
+    var r = await ft("/api/dnsdeep/" + encodeURIComponent(dominio), 15000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>DNS Deep · Seguridad Email</h3><div class=\"empty\">Error: " + d.error + "</div>"; return; }
+    var html = "<h3>DNS Deep · Seguridad Email</h3>";
+    html += "<div class=\"field\"><span class=\"key\">Dominio</span><span class=\"val\">" + d.domain + "</span></div>";
+    // Records
+    if (d.records) {
+      if (d.records.a && d.records.a.length) html += "<div class=\"field\"><span class=\"key\">A</span><span class=\"val\" style=\"font-size:10px;font-family:monospace\">" + d.records.a.join(", ") + "</span></div>";
+      if (d.records.aaaa && d.records.aaaa.length) html += "<div class=\"field\"><span class=\"key\">AAAA</span><span class=\"val\" style=\"font-size:10px\">" + d.records.aaaa.join(", ") + "</span></div>";
+      if (d.records.mx && d.records.mx.length) html += "<div class=\"field\"><span class=\"key\">MX</span><span class=\"val\" style=\"font-size:10px\">" + d.records.mx.join("<br>") + "</span></div>";
+      if (d.records.ns && d.records.ns.length) html += "<div class=\"field\"><span class=\"key\">NS</span><span class=\"val\" style=\"font-size:10px\">" + d.records.ns.join(", ") + "</span></div>";
+      if (d.records.soa) html += "<div class=\"field\"><span class=\"key\">SOA</span><span class=\"val\" style=\"font-size:10px\">" + d.records.soa + "</span></div>";
+    }
+    // Email security
+    if (d.email_security) {
+      html += "<div style=\"border-top:1px solid var(--border);margin-top:6px;padding-top:6px\">";
+      html += "<div style=\"font-size:10px;color:var(--text2);margin-bottom:4px;font-weight:600\">Seguridad Email:</div>";
+      var es = d.email_security;
+      html += "<div class=\"field\"><span class=\"key\">SPF</span><span class=\"val\" style=\"font-size:10px\">" + (es.spf || "<span class=\"red\">No tiene</span>") + "</span></div>";
+      if (es.spfWarnings && es.spfWarnings.length) {
+        for (var wi = 0; wi < es.spfWarnings.length; wi++) {
+          html += "<div class=\"field\"><span class=\"key\">⚠ SPF</span><span class=\"val red\" style=\"font-size:10px\">" + es.spfWarnings[wi] + "</span></div>";
+        }
+      }
+      html += "<div class=\"field\"><span class=\"key\">DMARC</span><span class=\"val\" style=\"font-size:10px\">" + (es.dmarc || "<span class=\"red\">No tiene</span>") + "</span></div>";
+      if (es.dmarcWarnings && es.dmarcWarnings.length) {
+        for (var wi = 0; wi < es.dmarcWarnings.length; wi++) {
+          html += "<div class=\"field\"><span class=\"key\">⚠ DMARC</span><span class=\"val red\" style=\"font-size:10px\">" + es.dmarcWarnings[wi] + "</span></div>";
+        }
+      }
+      html += "<div style=\"font-size:10px;color:var(--text2);margin:4px 0;font-weight:600\">DKIM:</div>";
+      if (es.dkim && es.dkim.length) {
+        for (var di = 0; di < es.dkim.length; di++) {
+          html += "<div class=\"user-result\"><span class=\"key\" style=\"font-size:10px;font-family:monospace\">" + es.dkim[di] + "</span></div>";
+        }
+      } else {
+        html += "<div class=\"empty\" style=\"padding:4px\">" + es.dkim + "</div>";
+      }
+      html += "</div>";
+    }
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>DNS Deep · Seguridad Email</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function buscarEmailFinder() {
+  var dominio = g("input-emailfinder").value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  if (!dominio) return alert("Ingresa un dominio");
+  var card = g("card-emailfinder");
+  card.innerHTML = "<h3>EmailFinder · Emails x Dominio</h3><div class=\"loading\" style=\"display:block\">Buscando emails para " + dominio + "...</div>";
+  try {
+    var r = await ft("/api/emailfinder/" + encodeURIComponent(dominio), 25000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>EmailFinder · Emails x Dominio</h3><div class=\"empty\">Error: " + d.error + "</div>"; return; }
+    var html = "<h3>EmailFinder · Emails x Dominio <span class=\"badge\" style=\"background:#f472b633;color:#f472b6\">" + d.total + " fuentes</span></h3>";
+    html += "<div class=\"field\"><span class=\"key\">Dominio</span><span class=\"val\">" + d.domain + "</span></div>";
+    if (d.mx && d.mx.length) html += "<div class=\"field\"><span class=\"key\">Servidores MX</span><span class=\"val\" style=\"font-size:10px\">" + d.mx.join(", ") + "</span></div>";
+    for (var i = 0; i < d.resultados.length; i++) {
+      var r = d.resultados[i];
+      html += "<div class=\"user-result\"><span class=\"key\">" + r.metodo + "</span>" +
+        "<div class=\"actions\"><a href=\"" + r.url + "\" target=\"_blank\" style=\"font-size:10px\">" + (r.dork || "Abrir") + "</a></div></div>";
+    }
+    html += "<div class=\"empty\" style=\"padding:4px;font-size:11px\">Ingresa el dominio y usa los enlaces para buscar emails publicos</div>";
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>EmailFinder · Emails x Dominio</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function buscarRNS() {
+  var q = g("input-rns").value.trim();
+  if (!q) return alert("Ingresa un CUIT o razon social");
+  var tipo = /^\d{11}$/.test(q) ? "cuit" : "razon";
+  var card = g("card-rns");
+  card.innerHTML = "<h3>RNS · Sociedades</h3><div class=\"loading\" style=\"display:block\">Buscando en Registro Nacional de Sociedades...</div>";
+  try {
+    var r = await ft("/api/rns/" + encodeURIComponent(q) + "?tipo=" + tipo, 15000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>RNS · Sociedades</h3><div class=\"empty\">Error: " + d.error + "</div>"; return; }
+    var html = "<h3>RNS · Sociedades</h3>";
+    html += "<div class=\"field\"><span class=\"key\">Busqueda</span><span class=\"val\">" + q + "</span></div>";
+    // Enlaces externos
+    for (var i = 0; i < d.resultados.length; i++) {
+      var r = d.resultados[i];
+      html += "<div class=\"user-result\"><span class=\"key\">" + r.metodo + "</span>" +
+        "<div class=\"actions\"><a href=\"" + r.url + "\" target=\"_blank\" style=\"font-size:10px\">Abrir</a></div></div>";
+    }
+    // Resultados CKAN
+    if (d.ckan && d.ckan.length) {
+      html += "<div style=\"border-top:1px solid var(--border);margin-top:6px;padding-top:6px\">";
+      html += "<div style=\"font-size:10px;color:var(--text2);margin-bottom:4px;font-weight:600\">Datos publicos (datos.jus.gob.ar):</div>";
+      for (var i = 0; i < d.ckan.length; i++) {
+        var s = d.ckan[i];
+        html += "<div style=\"border-bottom:1px solid var(--border);padding:4px 0\">" +
+          "<div style=\"font-size:11px;font-weight:600;color:var(--accent)\">" + s.razon_social + "</div>" +
+          "<div style=\"font-size:10px;color:var(--text2)\">CUIT: " + s.cuit + " | Tipo: " + s.tipo_societario + "</div>" +
+          (s.dom_fiscal_calle ? "<div style=\"font-size:10px;color:var(--text2)\">Domicilio fiscal: " + s.dom_fiscal_calle + " " + (s.dom_fiscal_numero||"") + ", " + (s.dom_fiscal_localidad||"") + ", " + (s.dom_fiscal_provincia||"") + "</div>" : "") +
+          "</div>";
+      }
+      html += "<div class=\"empty\" style=\"padding:4px;font-size:11px\"><a href=\"https://datos.jus.gob.ar/dataset/registro-nacional-de-sociedades\" target=\"_blank\">Descargar base completa (datos abiertos)</a></div>";
+      html += "</div>";
+    } else {
+      html += "<div class=\"empty\" style=\"padding:8px\">Sin resultados en datos publicos. Prob&aacute; con los enlaces de arriba</div>";
+    }
+    html += "<div class=\"empty\" style=\"padding:4px;font-size:11px\">Fuente: datos.jus.gob.ar + Argentina.gob.ar</div>";
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>RNS · Sociedades</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function buscarNmap() {
+  var target = g("input-nmap").value.trim();
+  if (!target) return alert("Ingresa una IP o dominio");
+  var card = g("card-nmap");
+  card.innerHTML = "<h3>Nmap · Escaneo Puertos</h3><div class=\"loading\" style=\"display:block\">Ejecutando nmap contra " + target + " (hasta 60s)...</div>";
+  try {
+    var r = await ft("/api/nmap/" + encodeURIComponent(target) + "?flags=-sS%20-sV%20-T4%20--open%20-oX%20-", 120000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>Nmap · Escaneo Puertos</h3><div class=\"empty\">" + d.error + (d.comando ? "</div><div class=\"empty\" style=\"padding:4px;font-size:11px\">Ejecuta manual: <code>" + d.comando + "</code>" : "") + "</div>"; return; }
+    var html = "<h3>Nmap · Escaneo Puertos</h3>";
+    html += "<div class=\"field\"><span class=\"key\">Target</span><span class=\"val\">" + target + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Hosts activos</span><span class=\"val\">" + d.hosts.length + "</span></div>";
+    for (var hi = 0; hi < d.hosts.length; hi++) {
+      var hst = d.hosts[hi];
+      html += "<div style=\"border-top:1px solid var(--border);margin:6px 0;padding-top:6px\">";
+      html += "<div style=\"font-size:11px;font-weight:600;color:var(--accent)\">" + (hst.hostname || hst.ip) + "</div>";
+      if (hst.ip) html += "<div class=\"field\"><span class=\"key\">IP</span><span class=\"val\">" + hst.ip + "</span></div>";
+      if (hst.os) html += "<div class=\"field\"><span class=\"key\">OS detectado</span><span class=\"val\">" + hst.os + "</span></div>";
+      if (hst.ports && hst.ports.length) {
+        html += "<div style=\"font-size:10px;color:var(--text2);margin:4px 0;font-weight:600\">Puertos abiertos:</div>";
+        for (var pi = 0; pi < hst.ports.length; pi++) {
+          var pt = hst.ports[pi];
+          html += "<div class=\"user-result\"><span class=\"key\">" + pt.port + "/" + pt.service + "</span><span class=\"val\" style=\"font-size:10px\">" + pt.product + (pt.version ? " " + pt.version : "") + "</span></div>";
+        }
+      }
+      html += "</div>";
+    }
+    html += "<div class=\"empty\" style=\"padding:4px;font-size:10px\">Comando: <code>" + (d.comando || '') + "</code></div>";
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>Nmap · Escaneo Puertos</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function buscarOpenVAS() {
+  var target = g("input-openvas").value.trim();
+  if (!target) return alert("Ingresa una IP o dominio");
+  var card = g("card-openvas");
+  card.innerHTML = "<h3>OpenVAS · Vulnerabilidades</h3><div class=\"loading\" style=\"display:block\">Ejecutando nmap --script vuln contra " + target + " (hasta 120s)...</div>";
+  try {
+    var r = await ft("/api/openvas/" + encodeURIComponent(target), 180000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>OpenVAS · Vulnerabilidades</h3><div class=\"empty\">" + d.error + (d.comando ? "</div><div class=\"empty\" style=\"padding:4px;font-size:11px\">Ejecuta manual: <code>" + d.comando + "</code>" : "") + "</div>"; return; }
+    var html = "<h3>OpenVAS · Vulnerabilidades</h3>";
+    html += "<div class=\"field\"><span class=\"key\">Target</span><span class=\"val\">" + target + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Hosts analizados</span><span class=\"val\">" + d.hosts.length + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Vulnerabilidades encontradas</span><span class=\"val " + (d.totalVulnerabilidades > 0 ? 'red' : 'green') + "\">" + d.totalVulnerabilidades + "</span></div>";
+    for (var hi = 0; hi < d.hosts.length; hi++) {
+      var hst = d.hosts[hi];
+      html += "<div style=\"border-top:1px solid var(--border);margin:6px 0;padding-top:6px\">";
+      html += "<div style=\"font-size:11px;font-weight:600;color:var(--accent)\">" + (hst.hostname || hst.ip) + "</div>";
+      if (hst.ip) html += "<div class=\"field\"><span class=\"key\">IP</span><span class=\"val\">" + hst.ip + "</span></div>";
+      if (hst.vulnerabilidades && hst.vulnerabilidades.length) {
+        html += "<div style=\"font-size:10px;color:var(--red);margin:4px 0;font-weight:600\">Vulnerabilidades detectadas:</div>";
+        for (var vi = 0; vi < hst.vulnerabilidades.length; vi++) {
+          var v = hst.vulnerabilidades[vi];
+          html += "<div class=\"user-result\"><span class=\"key\">" + v.id + "</span><span class=\"val\" style=\"font-size:10px;max-width:200px;word-break:break-word\">" + v.output.substring(0, 200) + "</span></div>";
+        }
+      } else {
+        html += "<div class=\"field\"><span class=\"key\">Vulnerabilidades</span><span class=\"val green\">No se detectaron</span></div>";
+      }
+      html += "</div>";
+    }
+    html += "<div class=\"empty\" style=\"padding:4px;font-size:10px\">Comando: <code>" + (d.comando || '') + "</code></div>";
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>OpenVAS · Vulnerabilidades</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function buscarCMS() {
+  var target = g("input-cms").value.trim();
+  if (!target) return alert("Ingresa una URL");
+  var card = g("card-cms");
+  card.innerHTML = "<h3>CMS Detector</h3><div class=\"loading\" style=\"display:block\">Analizando " + target + "...</div>";
+  try {
+    var r = await ft("/api/cms-detect/" + encodeURIComponent(target), 20000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>CMS Detector</h3><div class=\"empty\">Error: " + d.error + "</div>"; return; }
+    var html = "<h3>CMS Detector</h3>";
+    html += "<div class=\"field\"><span class=\"key\">URL</span><span class=\"val\">" + target + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Status</span><span class=\"val\">" + d.status + "</span></div>";
+    if (d.cms) {
+      html += "<div style=\"font-size:10px;color:var(--text2);margin:6px 0 4px;font-weight:600\">CMS detectado:</div>";
+      for (var ci = 0; ci < d.cms.length; ci++) {
+        var c = d.cms[ci];
+        html += "<div class=\"user-result\"><span class=\"key\">" + c.cms + "</span><span class=\"val\">" + c.confianza + "</span></div>";
+      }
+    }
+    if (d.tecnologias && d.tecnologias.length) {
+      html += "<div style=\"font-size:10px;color:var(--text2);margin:6px 0 4px;font-weight:600\">Tecnologias detectadas:</div><div style=\"display:flex;flex-wrap:wrap;gap:4px\">";
+      for (var ti = 0; ti < d.tecnologias.length; ti++) {
+        html += "<span class=\"chip\" style=\"cursor:default\">" + d.tecnologias[ti] + "</span>";
+      }
+      html += "</div>";
+    }
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>CMS Detector</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function buscarAdmin() {
+  var target = g("input-admin").value.trim();
+  if (!target) return alert("Ingresa una URL");
+  var card = g("card-admin");
+  card.innerHTML = "<h3>Admin Panel Finder</h3><div class=\"loading\" style=\"display:block\">Buscando paneles admin en " + target + "...</div>";
+  try {
+    var r = await ft("/api/admin-finder/" + encodeURIComponent(target) + "?limit=25", 45000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>Admin Panel Finder</h3><div class=\"empty\">Error: " + d.error + "</div>"; return; }
+    var html = "<h3>Admin Panel Finder</h3>";
+    html += "<div class=\"field\"><span class=\"key\">URL</span><span class=\"val\">" + target + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Rutas probadas</span><span class=\"val\">" + d.total_checked + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Encontrados</span><span class=\"val " + (d.encontrados > 0 ? 'red' : 'green') + "\">" + d.encontrados + "</span></div>";
+    if (d.resultados && d.resultados.length) {
+      html += "<div style=\"font-size:10px;color:var(--text2);margin:6px 0 4px;font-weight:600\">Rutas accesibles:</div>";
+      for (var ai = 0; ai < d.resultados.length; ai++) {
+        var a = d.resultados[ai];
+        html += "<div class=\"user-result\"><span class=\"key\"><a href=\"" + target.replace(/\/+$/,'') + a.path + "\" target=\"_blank\">" + a.path + "</a></span><span class=\"val\">" + a.status + " " + (a.tipo || '') + "</span></div>";
+      }
+    }
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>Admin Panel Finder</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function buscarSecHeaders() {
+  var target = g("input-secheaders").value.trim();
+  if (!target) return alert("Ingresa una URL");
+  var card = g("card-secheaders");
+  card.innerHTML = "<h3>Security Headers</h3><div class=\"loading\" style=\"display:block\">Escaneando headers de " + target + "...</div>";
+  try {
+    var r = await ft("/api/sec-headers/" + encodeURIComponent(target), 15000);
+    var d = await r.json();
+    if (d.error) { card.innerHTML = "<h3>Security Headers</h3><div class=\"empty\">Error: " + d.error + "</div>"; return; }
+    var html = "<h3>Security Headers</h3>";
+    html += "<div class=\"field\"><span class=\"key\">URL</span><span class=\"val\">" + target + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Status</span><span class=\"val\">" + d.status + "</span></div>";
+    if (d.server) html += "<div class=\"field\"><span class=\"key\">Server</span><span class=\"val\">" + d.server + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Headers presentes</span><span class=\"val green\">" + d.total_presentes + "</span></div>";
+    html += "<div class=\"field\"><span class=\"key\">Headers faltantes</span><span class=\"val red\">" + d.total_ausentes + "</span></div>";
+    if (d.presentes && d.presentes.length) {
+      html += "<div style=\"font-size:10px;color:var(--text2);margin:6px 0 4px;font-weight:600\">Presentes:</div>";
+      for (var pi = 0; pi < d.presentes.length; pi++) {
+        var p = d.presentes[pi];
+        html += "<div class=\"user-result\"><span class=\"key\" title=\"" + p.desc + "\">" + p.header + "</span><span class=\"val green\" style=\"font-size:10px\">" + p.valor.substring(0, 40) + "</span></div>";
+      }
+    }
+    if (d.ausentes && d.ausentes.length) {
+      html += "<div style=\"font-size:10px;color:var(--text2);margin:6px 0 4px;font-weight:600\">Faltantes (recomendados):</div>";
+      for (var si = 0; si < d.ausentes.length; si++) {
+        html += "<div class=\"user-result\"><span class=\"key\" title=\"" + d.ausentes[si].desc + "\">" + d.ausentes[si].header + "</span><span class=\"val red\">Falta</span></div>";
+      }
+    }
+    if (d.cookies) {
+      html += "<div style=\"font-size:10px;color:var(--text2);margin:4px 0\">Cookies: " + d.cookies.join(' | ') + "</div>";
+    }
+    card.innerHTML = html;
+  } catch(e) { card.innerHTML = "<h3>Security Headers</h3><div class=\"empty\">Error: " + abortMsg(e) + "</div>"; }
+}
+
+async function escanearPuertos() {
+  var ip = g("input-ip").value.trim();
+  if (!ip) return alert("Primero ingresa una IP en el campo de arriba");
+  consultarIP(ip);
+  var div = g("ip-info");
+  div.innerHTML += "<div class=\"loading\" style=\"display:block;grid-column:1/-1\">Escaneando puertos (26 puertos, ~18s)...</div>";
+  try {
+    var r = await ft("/api/scan/" + encodeURIComponent(ip), 25000);
+    var d = await r.json();
+    if (d.error) { div.innerHTML += "<div class=\"empty\" style=\"grid-column:1/-1\">Error: " + d.error + "</div>"; return; }
+    var html = "";
+    if (d.total === 0) {
+      html += "<div class=\"field\" style=\"grid-column:1/-1\"><span class=\"key\">Puertos abiertos</span><span class=\"val red\">Ninguno</span></div>";
+    } else {
+      var puertosStr = d.puertos.map(function(p) { return p + (d.nombres[p] ? " (" + d.nombres[p] + ")" : ""); }).join(", ");
+      html += "<div class=\"field\" style=\"grid-column:1/-1\"><span class=\"key\">Puertos abiertos</span><span class=\"val green\">" + puertosStr + "</span></div>";
+      html += "<div style=\"grid-column:1/-1;display:flex;gap:4px;flex-wrap:wrap\">";
+      for (var key in d.grupos) {
+        if (d.grupos[key] && d.grupos[key].length) {
+          html += "<span class=\"port-badge open\">" + key.replace(/_/g, " ") + ": " + d.grupos[key].join(", ") + "</span>";
+        }
+      }
+      html += "</div>";
+      html += "<div style=\"grid-column:1/-1;font-size:9px;color:var(--text2);margin-top:2px\">Grupos: Web · Admin · Base de datos · Archivos · Email</div>";
+    }
+    div.innerHTML = div.innerHTML.replace(/<div class="loading".*?>.*?<\/div>/, html);
+  } catch(e) {
+    div.innerHTML = div.innerHTML + "<div class=\"empty\" style=\"grid-column:1/-1\">Error scan: " + e.message + "</div>";
+  }
+}
+
+document.addEventListener("keydown", function(e) { if (e.key === "Enter") buscarTodo(); });
+g("input-cuit").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarCUITInput(); });
+g("input-dni").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarCuitPorDniInput(); });
+g("input-email").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarEmailInput(); });
+g("input-telefono").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarTelefonoInput(); });
+g("input-usuario").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarUsuarioInput(); });
+g("input-ip").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarIP(); });
+g("input-wayback").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarWayback(); });
+g("input-ddjj").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarDDJJ(); });
+g("input-ct").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarCT(); });
+g("input-breach").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarBreach(); });
+g("input-bin").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarBIN(); });
+g("input-crypto").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarCrypto(); });
+g("input-whois").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarWhois(); });
+g("input-dorks").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarDorks(); });
+g("input-paste").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarPaste(); });
+g("input-dnsdeep").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarDNSDeep(); });
+g("input-emailfinder").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarEmailFinder(); });
+g("input-rns").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarRNS(); });
+g("input-nmap").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarNmap(); });
+g("input-openvas").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarOpenVAS(); });
+g("input-cms").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarCMS(); });
+g("input-admin").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarAdmin(); });
+g("input-secheaders").addEventListener("keydown", function(e) { if (e.key === "Enter") buscarSecHeaders(); });
+
+</script>
+</body>
+</html>

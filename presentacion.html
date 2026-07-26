@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OSINT Dashboard - Presentacion</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Inter,sans-serif;background:#080b14;color:#e2e6f0;padding:40px 20px;display:flex;justify-content:center}
+.container{max-width:960px;width:100%}
+
+/* Hero */
+.hero{text-align:center;padding:40px 20px 30px;border-bottom:1px solid #1c2137}
+.hero h1{font-size:48px;font-weight:900;letter-spacing:-1.5px;margin-bottom:8px}
+.hero h1 span{background:linear-gradient(135deg,#6c8cff,#a78bfa,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero .tagline{font-size:14px;color:#6c8cff;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px}
+.hero .filosofia{font-size:16px;color:#8891b0;line-height:1.7;font-style:italic;max-width:700px;margin:0 auto;padding:16px 24px;background:#1c213722;border-radius:12px;border:1px solid #262d48}
+.hero .filosofia span{color:#e2e6f0;font-weight:600;font-style:normal}
+
+.subtitle{text-align:center;font-size:13px;color:#8891b0;margin:24px 0 30px}
+.subtitle strong{color:#6c8cff}
+
+.section{margin-bottom:36px}
+.section-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #262d48}
+.section-header .icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0}
+.section-header h2{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#8891b0}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}}
+
+.card{background:#141826;border:1px solid #262d48;border-radius:10px;padding:16px;transition:border-color .2s}
+.card:hover{border-color:#6c8cff44}
+.card h3{font-size:12px;font-weight:700;color:#8891b0;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.card h3 .hash{color:#6c8cff;font-size:10px}
+.card p{font-size:13px;line-height:1.6;color:#c8cce0}
+
+/* Badge colors */
+.bg-personal{background:#60a5fa22;color:#60a5fa}
+.bg-financiero{background:#f59e0b22;color:#f59e0b}
+.bg-red{background:#34d39922;color:#34d399}
+.bg-seguridad{background:#f472b622;color:#f472b6}
+.bg-osint{background:#c084fc22;color:#c084fc}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:24px 0 32px}
+.stat{text-align:center;padding:16px;background:#141826;border:1px solid #262d48;border-radius:10px}
+.stat .num{font-size:28px;font-weight:800;background:linear-gradient(135deg,#6c8cff,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat .label{font-size:11px;color:#8891b0;margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+
+.stack{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin:24px 0}
+.stack span{padding:6px 14px;border-radius:8px;font-size:11px;font-weight:600;background:#1c2137;color:#8891b0;border:1px solid #262d48}
+
+.footer{text-align:center;padding:24px 0 10px;border-top:1px solid #1c2137;margin-top:24px;font-size:11px;color:#8891b0;opacity:.5}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="hero">
+    <div class="tagline">Open Source Intelligence · Argentina</div>
+    <h1><span>OSINT</span> Dashboard</h1>
+    <div class="filosofia">
+      "La informacion debe ser libre &mdash; El conocimiento es poder &mdash; La transparencia es un derecho"<br>
+      <span style="font-size:13px;color:#8891b0;margin-top:8px;display:block">
+        Informacion de fuentes publicas, sin API keys, sin costos, sin restricciones.
+      </span>
+    </div>
+  </div>
+
+  <div class="subtitle">
+    <strong>23 herramientas</strong> organizadas en 5 categorias &middot; Todo desde el navegador &middot; Resultados exportables a PDF
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="num">23</div><div class="label">Herramientas</div></div>
+    <div class="stat"><div class="num">5</div><div class="label">Categorias</div></div>
+    <div class="stat"><div class="num">0</div><div class="label">API Keys requeridas</div></div>
+  </div>
+
+  <!-- DATOS PERSONALES -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon bg-personal">P</div>
+      <h2>Datos Personales</h2>
+    </div>
+    <div class="grid">
+      <div class="card"><h3><span class="hash">#</span>CUIT</h3><p>Consulta el titular, estado fiscal y situacion crediticia (BCRA Central de Deudores) de cualquier CUIT argentino. Fuentes: ARCA + BCRA.</p></div>
+      <div class="card"><h3><span class="hash">#</span>CUIT x DNI</h3><p>Calcula el CUIT a partir del DNI usando el algoritmo publico de modulo 11. Obtiene el nombre real del titular desde ARCA via Puppeteer.</p></div>
+      <div class="card"><h3><span class="hash">#</span>Email</h3><p>Busca filtraciones, brechas de seguridad y datos publicos asociados a una direccion de email.</p></div>
+      <div class="card"><h3><span class="hash">#</span>Telefono</h3><p>Geolocaliza lineas telefonicas argentinas: prefijo, operador, provincia y localidad.</p></div>
+      <div class="card"><h3><span class="hash">#</span>Usuario</h3><p>Escanea presencia de un username en redes sociales, foros y plataformas publicas.</p></div>
+      <div class="card"><h3><span class="hash">#</span>Sociedades (RNS)</h3><p>Consulta el Registro Nacional de Sociedades por CUIT o razon social para datos de empresas y personas juridicas.</p></div>
+      <div class="card"><h3><span class="hash">#</span>Wayback Machine</h3><p>Accede al historial de versiones archivadas de cualquier dominio en Internet Archive.</p></div>
+    </div>
+  </div>
+
+  <!-- DATOS FINANCIEROS -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon bg-financiero">F</div>
+      <h2>Datos Financieros</h2>
+    </div>
+    <div class="grid">
+      <div class="card"><h3><span class="hash">#</span>DDJJ</h3><p>Busca declaraciones juradas de bienes personales de funcionarios publicos argentinos.</p></div>
+      <div class="card"><h3><span class="hash">#</span>BIN</h3><p>Identifica emisor, tipo, marca, nivel y pais de tarjetas de credito/debito desde los primeros 6-8 digitos.</p></div>
+      <div class="card"><h3><span class="hash">#</span>Crypto</h3><p>Consulta saldo y transacciones de direcciones Bitcoin y Ethereum en blockchains publicas.</p></div>
+    </div>
+  </div>
+
+  <!-- RED Y DOMINIOS -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon bg-red">R</div>
+      <h2>Red y Dominios</h2>
+    </div>
+    <div class="grid">
+      <div class="card"><h3><span class="hash">#</span>CT Subdominios</h3><p>Extrae todos los subdominios de un dominio desde los registros publicos de Certificate Transparency (crt.sh).</p></div>
+      <div class="card"><h3><span class="hash">#</span>DNS Deep</h3><p>Analiza registros MX, SPF, DMARC y DKIM para evaluar la seguridad del correo electronico de un dominio.</p></div>
+      <div class="card"><h3><span class="hash">#</span>WHOIS</h3><p>Obtiene datos de registro de un dominio: titular, fechas de creacion/vencimiento y DNS servers.</p></div>
+      <div class="card"><h3><span class="hash">#</span>Nmap</h3><p>Escaneo de puertos abiertos. Intenta nmap -sS -sV, con fallback a TCP scan Node.js sobre 28 puertos comunes.</p></div>
+      <div class="card"><h3><span class="hash">#</span>OpenVAS</h3><p>Escanea vulnerabilidades conocidas por puerto. Intenta nmap --script vuln, con fallback heuristico (EternalBlue, BlueKeep, etc.).</p></div>
+    </div>
+  </div>
+
+  <!-- SEGURIDAD WEB -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon bg-seguridad">W</div>
+      <h2>Seguridad Web</h2>
+    </div>
+    <div class="grid">
+      <div class="card"><h3><span class="hash">#</span>CMS Detector</h3><p>Detecta WordPress, Joomla, Drupal, Magento, PrestaShop, Shopify, Wix, Squarespace, Ghost y tecnologias web (jQuery, React, Vue, Angular, Bootstrap).</p></div>
+      <div class="card"><h3><span class="hash">#</span>Admin Panel Finder</h3><p>Prueba 35+ rutas comunes de panel de administracion e identifica cuales son accesibles publicamente.</p></div>
+      <div class="card"><h3><span class="hash">#</span>Security Headers</h3><p>Evalua 10 headers de seguridad HTTP (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, etc.) y analiza flags de cookies (Secure, HttpOnly, SameSite).</p></div>
+    </div>
+  </div>
+
+  <!-- OSINT / REFERENCIAS -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon bg-osint">O</div>
+      <h2>OSINT / Referencias</h2>
+    </div>
+    <div class="grid">
+      <div class="card"><h3><span class="hash">#</span>Dorks</h3><p>Genera enlaces de busqueda Google Dorks para investigacion publica de nombres, emails o usuarios.</p></div>
+      <div class="card"><h3><span class="hash">#</span>Breach</h3><p>Consulta en bases de datos de filtraciones publicas si un email fue comprometido en brechas de seguridad conocidas.</p></div>
+      <div class="card"><h3><span class="hash">#</span>Paste</h3><p>Busca menciones de un email o usuario en Pastebin y plataformas de paste publicas.</p></div>
+      <div class="card"><h3><span class="hash">#</span>EmailFinder</h3><p>Extrae direcciones de email publicas asociadas a un dominio mediante scraping web.</p></div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <span>Node.js</span>
+    <span>Express</span>
+    <span>Vanilla JS</span>
+    <span>Puppeteer</span>
+    <span>Leaflet.js</span>
+    <span>PDFKit</span>
+    <span>Sin API Keys</span>
+  </div>
+
+  <div class="footer">
+    OSINT Dashboard &middot; Datos de fuentes publicas &copy; 2026 MF Tech AR &middot; Codigo abierto &middot; Libertad de informacion
+  </div>
+</div>
+</body>
+</html>
